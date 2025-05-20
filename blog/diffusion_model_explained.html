@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Dive: Understanding Diffusion Models from a Mathematical View</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <style>
+        .blog-post {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        .blog-post h1 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .post-meta {
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .post-content {
+            font-size: 1.1rem;
+            line-height: 1.8;
+        }
+
+        .post-content h2 {
+            color: var(--primary-color);
+            margin: 2rem 0 1rem;
+            font-size: 1.8rem;
+        }
+
+        .post-content h3 {
+            color: var(--primary-color);
+            margin: 1.5rem 0 1rem;
+            font-size: 1.4rem;
+        }
+
+        .post-content p {
+            margin-bottom: 1.5rem;
+        }
+
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 2rem;
+        }
+
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        .math {
+            font-size: 1.1em;
+            line-height: 1.5;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+        }
+
+        .katex-display {
+            margin: 1.5rem 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .back-to-home {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .back-to-home:hover {
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">Pipi Hu's Blog</div>
+            <ul class="nav-links">
+                <li><a href="../index.html#home">Home</a></li>
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#blog">Blog</a></li>
+                <li><a href="../index.html#contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <article class="blog-post">
+            <a href="../index.html" class="back-to-home">← Back to Home</a>
+            <h1>Deep Dive: Understanding Diffusion Models from a Mathematical View</h1>
+            <div class="post-meta">
+                <span class="date">March 19, 2024</span>
+                <span class="author">By Pipi Hu</span>
+            </div>
+
+            <section class="post-content">
+                <p><em>"What I cannot create, I do not understand." - Richard Feynman</em></p>
+
+                <p>Diffusion models have revolutionized the field of generative AI, producing stunning results in image generation, audio synthesis, and more. But what makes them tick? In this comprehensive guide, we'll break down the mathematical foundations of diffusion models, making complex concepts accessible while maintaining technical accuracy.</p>
+
+                <h2>Table of Contents</h2>
+                <ol>
+                    <li><a href="#introduction">Introduction to Sample Generation</a></li>
+                    <li><a href="#score-function">The Score Function: A Key Ingredient</a></li>
+                    <li><a href="#training">Training Approaches: ESM, ISM, and DSM</a></li>
+                    <li><a href="#relations">Relations Between Different Models</a></li>
+                    <li><a href="#diffusion">Diffusion Models: From Theory to Practice</a></li>
+                    <li><a href="#continuous">Continuous Formulations and SDEs</a></li>
+                    <li><a href="#implementation">Practical Implementation</a></li>
+                    <li><a href="#questions">Open Questions and Future Directions</a></li>
+                </ol>
+
+                <h2 id="introduction">Introduction to Sample Generation</h2>
+                <p>At its core, generative modeling is about learning to sample from complex probability distributions. Let's start with the basics and gradually build up to more sophisticated methods.</p>
+
+                <h3>Simple Distributions</h3>
+                <p>We begin with simple distributions that serve as building blocks for more complex models. The uniform distribution provides the foundation for random number generation. For a uniform distribution $U(a,b)$, we can generate samples using:</p>
+                <p class="math">$$x = a + (b-a) \cdot \text{rand()}$$</p>
+                <p>where $\text{rand()}$ generates a random number in $[0,1]$. This simple mechanism forms the basis for sampling from more complex distributions.</p>
+
+                <p>Moving to the Gaussian distribution, we can use the elegant Box-Muller transform to generate samples from a standard normal distribution $N(0,1)$:</p>
+                <p class="math">$$x = \sqrt{-2\ln(u_1)} \cos(2\pi u_2)$$</p>
+                <p class="math">$$y = \sqrt{-2\ln(u_1)} \sin(2\pi u_2)$$</p>
+                <p>where $u_1, u_2 \sim U(0,1)$ are independent uniform random variables. This transform converts uniform random variables into normally distributed ones through a clever use of polar coordinates.</p>
+
+                <p>For mixture models, we combine these basic building blocks. A mixture of $K$ Gaussians with weights $\pi_k$ has the form:</p>
+                <p class="math">$$p(x) = \sum_{k=1}^K \pi_k N(x; \mu_k, \Sigma_k)$$</p>
+                <p>Sampling from this distribution involves two steps: first choosing which Gaussian to sample from using a categorical distribution, then sampling from the chosen Gaussian using the Box-Muller transform. This hierarchical sampling process will become important when we discuss more complex models.</p>
+
+                <h3>Complex Distributions</h3>
+                <p>When dealing with complex distributions, we need more sophisticated methods. Let's explore two powerful approaches that form the foundation of modern generative modeling.</p>
+
+                <p>The first approach, Langevin Markov Chain Monte Carlo (Langevin MCMC), uses gradient information to guide the sampling process. The discrete-time update rule is:</p>
+                <p class="math">$$x_{t+1} = x_t + \frac{\epsilon^2}{2}\nabla_x \log p(x_t) + \epsilon z_t$$</p>
+                <p>where $z_t \sim N(0,I)$ and $\epsilon$ is the step size. As we take smaller steps (as $\epsilon \to 0$), this process converges to the continuous-time Langevin dynamics:</p>
+                <p class="math">$$dx_t = \frac{1}{2}\nabla_x \log p(x_t) dt + dB_t$$</p>
+                <p>This continuous formulation will be particularly relevant when we discuss diffusion models later.</p>
+
+                <p>The second approach, Stein Variational Gradient Descent (SVGD), takes a different perspective by using kernel methods. It updates particles using:</p>
+                <p class="math">$$x_i \leftarrow x_i + \epsilon \phi^*(x_i)$$</p>
+                <p>where $\phi^*(x) = \mathbb{E}_{y \sim q} [k(x,y)\nabla_y \log p(y) + \nabla_y k(x,y)]$ and $k(x,y)$ is a positive definite kernel (typically an RBF kernel). This method combines the advantages of particle-based methods, kernel methods, and gradient-based optimization, making it particularly effective for high-dimensional distributions.</p>
+
+                <h2 id="score-function">The Score Function: A Key Ingredient</h2>
+                <p>Now that we understand the basic sampling methods, let's introduce a crucial concept that will be central to our discussion of diffusion models: the score function. Traditional sample generation often involves three key steps:</p>
+
+                <ol>
+                    <li>Modeling the probability function $p(x)$ as $p(x;\theta)$</li>
+                    <li>Dealing with normalization constants: $p(x;\theta)=\frac{1}{C(\theta)}e^{-E(x;\theta)}$, where $C(\theta)\equiv\int_x e^{-E(x;\theta)}dx$ is often intractable</li>
+                    <li>Using sampling methods like Langevin MCMC</li>
+                </ol>
+
+                <p>The Langevin MCMC update rule we saw earlier:</p>
+                <p class="math">$$x_t = x_{t-1}+\frac{\Delta t}{2}\nabla_x\log p(x_{t-1};\theta)+\sqrt{\Delta t}\epsilon, \quad \epsilon\sim N(0, 1)$$</p>
+
+                <p>reveals something crucial: the term $\nabla_x\log p(x_{t-1};\theta)$ (the <strong>score function</strong>) is free of the intractable normalization constant $C(\theta)$. This is because:</p>
+                <p class="math">$$\nabla_x\log p(x;\theta) = \nabla_x (\log(e^{-E(x;\theta)}) - \log C(\theta)) = -\nabla_xE(x;\theta)$$</p>
+
+                <p>We define the <strong>score function</strong> as:</p>
+                <p class="math">$$S(x;\theta) \equiv \nabla_x \log p(x;\theta)$$</p>
+
+                <p>This function will be our guide through the rest of the discussion, as it plays a central role in both the theory and practice of diffusion models.</p>
+
+                <h3>More about Langevin MCMC and the Score Function</h3>
+                <p>Let's dive deeper into the relationship between Langevin dynamics and the score function. The continuous form of Langevin MCMC (as $\Delta t\to 0$) is:</p>
+                <p class="math">$$dx = \frac{1}{2}\nabla_x\log p(x) dt+ dB_t$$</p>
+                <p>where $dB_t$ is a Brownian motion. This equation describes how a particle moves through the probability landscape, being pulled by the score function while being jostled by random noise.</p>
+
+                <p>If we express our probability distribution as $p(x)=\frac{1}{C}e^{-E}$, we get:</p>
+                <p class="math">$$dx = -\frac{1}{2}\nabla_x E dt + dB_t$$</p>
+
+                <p>This is known as overdamped Langevin dynamics. The full Langevin dynamics (from molecular dynamics) is more complex:</p>
+                <p class="math">$$\ddot{x} = -\nabla_x E - \gamma \dot{x} + dB_t$$</p>
+
+                <p>When the friction term $\gamma \dot{x}$ dominates inertia $\ddot{x}$ (i.e., $\gamma \dot{x} \gg \ddot{x}$), we arrive at the overdamped Langevin equation:</p>
+                <p class="math">$$dx = -\frac{1}{\gamma}\nabla_x E dt + \frac{1}{\gamma}dB_t$$</p>
+
+                <p>This simplified form will be particularly useful when we discuss the continuous-time formulation of diffusion models.</p>
+
+                <h3>Properties of the Score Function</h3>
+                <p>The score function has several important properties that make it particularly useful for generative modeling. Let's explore these properties in detail:</p>
+
+                <ol>
+                    <li>
+                        <strong>Zero Mean</strong>: The score function has zero mean under the data distribution:
+                        <p class="math">$$\mathbb{E}_{p(x)}[\nabla_x \log p(x)] = \int p(x) \nabla_x \log p(x) dx = \int \nabla_x p(x) dx = 0$$</p>
+                        <p>This property ensures that the score function provides unbiased gradient information.</p>
+                    </li>
+
+                    <li>
+                        <strong>Fisher Information</strong>: The covariance of the score function is the Fisher information matrix:
+                        <p class="math">$$\mathbb{E}_{p(x)}[\nabla_x \log p(x) \nabla_x \log p(x)^T] = I(\theta)$$</p>
+                        <p>This connection to Fisher information provides a natural way to measure the quality of our score estimates.</p>
+                    </li>
+
+                    <li>
+                        <strong>Stein's Identity</strong>: For any function $f(x)$ with sufficient regularity:
+                        <p class="math">$$\mathbb{E}_{p(x)}[f(x)\nabla_x \log p(x) + \nabla_x f(x)] = 0$$</p>
+                        <p>This identity will be crucial when we discuss different training approaches.</p>
+                    </li>
+
+                    <li>
+                        <strong>Score Matching Property</strong>: The score function is invariant to the normalization constant:
+                        <p class="math">$$\nabla_x \log p(x) = \nabla_x \log \frac{p(x)}{Z} = \nabla_x \log p(x) - \nabla_x \log Z = \nabla_x \log p(x)$$</p>
+                        <p>This property is particularly important as it allows us to work with unnormalized probability distributions.</p>
+                    </li>
+                </ol>
+
+                <p>These properties form the theoretical foundation for the training approaches we'll discuss next.</p>
+
+                <h2 id="training">Training Approaches</h2>
+                <p>Now that we understand the score function and its properties, let's explore different ways to train models to estimate it. We'll discuss three main approaches, each with its own advantages and challenges.</p>
+
+                <h3>1. Explicit Score Matching (ESM)</h3>
+                <p>The most direct approach is to minimize the difference between our model's score and the true score:</p>
+                <p class="math">$$J_{ESM} =\frac{1}{2} \mathbb{E}_{p(x)}\left[\|s_\theta(x) - \nabla_x \log p(x)\|^2\right]$$</p>
+
+                <p>This approach has several important properties:</p>
+                <ul>
+                    <li>It provides an unbiased estimator of the true score</li>
+                    <li>It requires access to the true score function</li>
+                    <li>It can be computationally expensive for complex distributions</li>
+                </ul>
+
+                <p>The main challenge with ESM is that it requires knowledge of $\nabla_x \log p(x)$, which is often unavailable in practice. This limitation led to the development of alternative approaches.</p>
+
+                <h3>2. Implicit Score Matching (ISM)</h3>
+                <p>To address the limitations of ESM, Hyvärinen (2005) proposed a tractable alternative:</p>
+                <p class="math">$$J_{ISM} \equiv \mathbb{E}_{p(x)}\left[\frac{1}{2}\|s_\theta(x)\|^2+\text{Tr}(\nabla_x s_\theta(x))\right]$$</p>
+
+                <p>Let's prove that this is equivalent to ESM up to a constant. Starting from $J_{ESM}$:</p>
+                <p class="math">$$
+                \begin{aligned}
+                J_{ESM} &= \frac{1}{2} \mathbb{E}_{p(x)}\left[\|s_\theta(x)-\nabla_x \log p(x)\|^2\right] \\
+                        &= \frac{1}{2} \mathbb{E}_{p(x)}\left[\|s_\theta(x)\|^2\right] - \mathbb{E}_{p(x)}[s_\theta(x) \cdot \nabla_x \log p(x)] + \frac{1}{2}\mathbb{E}_{p(x)}\left[\|\nabla_x \log p(x)\|^2\right]
+                \end{aligned}
+                $$</p>
+
+                <p>The cross term can be rewritten using integration by parts:</p>
+                <p class="math">$$
+                \begin{aligned}
+                - \mathbb{E}_{p(x)}[s_\theta(x) \cdot \nabla_x \log p(x)] &= -\int_x p(x) s_\theta(x) \cdot \frac{\nabla_x p(x)}{p(x)} dx \\
+                &= -\int_x s_\theta(x) \cdot \nabla_x p(x) dx \\
+                &= -\left[ \int_x \nabla_x \cdot (p(x)s_\theta(x)) dx - \int_x p(x) (\nabla_x \cdot s_\theta(x)) dx \right] \\
+                &= \mathbb{E}_{p(x)}[\nabla_x \cdot s_\theta(x)]
+                \end{aligned}
+                $$</p>
+
+                <p>Thus, $J_{ESM} = J_{ISM} - C$, where $C = \frac{1}{2}\mathbb{E}_{p(x)}\left[\|\nabla_x \log p(x)\|^2\right]$ is a constant.</p>
+
+                <p>ISM has several advantages:</p>
+                <ul>
+                    <li>It doesn't require the true score function</li>
+                    <li>It can be computed from samples</li>
+                    <li>It's equivalent to ESM up to a constant</li>
+                    <li>It provides a more stable training process</li>
+                </ul>
+
+                <h3>3. Denoising Score Matching (DSM)</h3>
+                <p>Building on the insights from ISM, Vincent (2011) proposed an even more stable approach:</p>
+                <p class="math">$$J_{DSM} = \frac{1}{2}\mathbb{E}_{p(x)p(\tilde{x}|x)}\left[\|s_\theta(\tilde{x}) - \nabla_{\tilde{x}}\log p(\tilde{x}|x)\|^2\right]$$</p>
+
+                <p>This approach adds noise to the data and matches the score of the noisy distribution. Let's prove its equivalence to ESM:</p>
+                <p class="math">$$
+                \begin{aligned}
+                J_{DSM} &= \frac{1}{2}\mathbb{E}_{p(\tilde{x})}\left[\|s_\theta(\tilde{x})\|^2\right] - \mathbb{E}_{p(x,\tilde{x})}[s_\theta(\tilde{x})\cdot\nabla_{\tilde{x}}\log p(\tilde{x}|x)] \\
+                &+ \frac{1}{2}\mathbb{E}_{p(x,\tilde{x})}[\|\nabla_{\tilde{x}}\log p(\tilde{x}|x)\|^2]
+                \end{aligned}
+                $$</p>
+
+                <p>The cross term $\mathbb{E}_{p(x,\tilde{x})}[s_\theta(\tilde{x})\cdot\nabla_{\tilde{x}}\log p(\tilde{x}|x)]$ can be shown to be equal to $\mathbb{E}_{p(\tilde{x})}[s_\theta(\tilde{x})\cdot\nabla_{\tilde{x}}\log p(\tilde{x})]$ under expectation over $p(\tilde{x}|x)$.</p>
+
+                <p>DSM offers several advantages:</p>
+                <ul>
+                    <li>It's more stable than ISM</li>
+                    <li>It works well with high-dimensional data</li>
+                    <li>It can be used with any noise distribution</li>
+                    <li>It's particularly effective for image generation</li>
+                </ul>
+
+                <p>These three approaches provide different ways to train score-based models, each with its own strengths and applications. In practice, the choice between them depends on the specific requirements of your task.</p>
+
+                <h2 id="relations">Relations Between Different Models</h2>
+                <p>Now that we understand different training approaches, let's explore how they relate to each other and to other modeling approaches. This will help us understand the broader landscape of generative modeling.</p>
+
+                <h3>Tweedie's Formula</h3>
+                <p>A key result from Bayesian statistics, Tweedie's Formula, provides an elegant connection between the score function and posterior expectations. Given random variables $X, Y$, where $Y \sim N(X, \sigma^2 I)$ (i.e., $p(y|x) = N(y; x, \sigma^2 I)$), the posterior expectation of $X$ is:</p>
+                <p class="math">$$\mathbb{E}[X|y] = y + \sigma^2 \nabla_y \log p(y)$$</p>
+
+                <p>Let's prove this important result. For $p(y|x) = N(y; x, \sigma^2 I)$, we have:</p>
+                <p class="math">$$\nabla_y \log p(y|x) = -\frac{y-x}{\sigma^2}$$</p>
+
+                <p>The posterior expectation is:</p>
+                <p class="math">$$\mathbb{E}[X|y] = \int x p(x|y) dx = \int x \frac{p(y|x)p(x)}{p(y)} dx$$</p>
+
+                <p>Taking the gradient with respect to $y$:</p>
+                <p class="math">$$\nabla_y \log p(y) = \frac{\nabla_y p(y)}{p(y)} = \frac{\int \nabla_y p(y|x) p(x) dx}{p(y)} = \frac{\int (x-y) p(y|x) p(x) dx}{\sigma^2 p(y)} = \frac{\mathbb{E}[X|y] - y}{\sigma^2}$$</p>
+
+                <p>Therefore:</p>
+                <p class="math">$$\mathbb{E}[X|y] = y + \sigma^2 \nabla_y \log p(y)$$</p>
+
+                <p>This formula has profound implications for our understanding of diffusion models. Applying it to our noising process:</p>
+                <p class="math">$$\mathbb{E}[\alpha x_0 | \tilde{x}] = \tilde{x} + \sigma^2 \nabla_{\tilde{x}} \log p(\tilde{x})$$</p>
+
+                <p>So, the score of the marginal distribution $p(\tilde{x})$ is:</p>
+                <p class="math">$$s(\tilde{x}) \equiv \nabla_{\tilde{x}} \log p(\tilde{x}) = \frac{\mathbb{E}[\alpha x_0 | \tilde{x}] - \tilde{x}}{\sigma^2}$$</p>
+
+                <p>We can also write this in terms of the expected noise $\mathbb{E}[\epsilon|\tilde{x}]$:</p>
+                <p class="math">$$s(\tilde{x}) = -\frac{\mathbb{E}[\epsilon|\tilde{x}]}{\sigma}$$</p>
+
+                <p>This connection between the score function and posterior expectations will be crucial when we discuss different model parametrizations.</p>
+
+                <h3>Alternative Derivation of the Score</h3>
+                <p>Let's explore another way to understand the score function. Starting with $\tilde{x} = \alpha x_0 + \sigma \epsilon$, so $p(\tilde{x}|x_0) = C e^{-\frac{\|\tilde{x}-\alpha x_0\|^2}{2\sigma^2}}$.</p>
+
+                <p>The score of the marginal $p(\tilde{x})$ is:</p>
+                <p class="math">$$s(\tilde{x}) = \nabla_{\tilde{x}}\log p(\tilde{x}) = \frac{\nabla_{\tilde{x}}p(\tilde{x})}{p(\tilde{x})} = \frac{\int_{x_0} \nabla_{\tilde{x}}p(\tilde{x}|x_0) p(x_0)dx_0}{p(\tilde{x})}$$</p>
+
+                <p>Since $\nabla_{\tilde{x}}p(\tilde{x}|x_0) = p(\tilde{x}|x_0) \nabla_{\tilde{x}}\log p(\tilde{x}|x_0)$:</p>
+                <p class="math">$$s(\tilde{x}) = \mathbb{E}_{x_0 \sim p(x_0|\tilde{x})}[\nabla_{\tilde{x}} \log p(\tilde{x}|x_0)]$$</p>
+
+                <p>Given $p(\tilde{x}|x_0) = N(\tilde{x}; \alpha x_0, \sigma^2 I)$, $\nabla_{\tilde{x}}\log p(\tilde{x}|x_0) = -\frac{\tilde{x}-\alpha x_0}{\sigma^2}$.</p>
+
+                <p>$$s(\tilde{x}) = \mathbb{E}_{x_0}\left[-\frac{\tilde{x}-\alpha x_0}{\sigma^2} \middle| \tilde{x}\right] = -\frac{\tilde{x}-\alpha \mathbb{E}[x_0|\tilde{x}]}{\sigma^2}$$</p>
+
+                <p>This derivation shows how the score function naturally emerges from the noise-corrupted data distribution.</p>
+
+                <h3>Relating Different Model Parametrizations</h3>
+                <p>We can train neural networks to predict different quantities, each with its own advantages:</p>
+
+                <ol>
+                    <li>
+                        <strong>Score Model $s_\theta(\tilde{x})$</strong>:
+                        <ul>
+                            <li>Trained to predict $s(\tilde{x}) = \nabla_{\tilde{x}}\log p(\tilde{x})$</li>
+                            <li>Using DSM, the target is $\nabla_{\tilde{x}}\log p(\tilde{x}|x_0) = -\frac{\tilde{x}-\alpha x_0}{\sigma^2} = -\frac{\epsilon}{\sigma}$</li>
+                            <li>Loss: $Loss_{score} = \mathbb{E}\left[\left\|s_\theta(\tilde{x}) + \frac{\epsilon}{\sigma}\right\|^2\right]$</li>
+                            <li>Advantages:
+                                <ul>
+                                    <li>Direct modeling of the score function</li>
+                                    <li>Clear connection to Langevin dynamics</li>
+                                    <li>Theoretical guarantees</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <strong>$x_0$-Prediction Model $x_\theta(\tilde{x})$ (Denoising Model)</strong>:
+                        <ul>
+                            <li>Trained to predict $x_0$</li>
+                            <li>Optimal $x_{\theta^*}(\tilde{x}) = \mathbb{E}[x_0|\tilde{x}]$</li>
+                            <li>Loss: $Loss_{x_0} = \mathbb{E}[\|x_\theta(\tilde{x}) - x_0\|^2]$</li>
+                            <li>Connection to score: $s_\theta(\tilde{x}) \approx -\frac{\tilde{x}-\alpha x_\theta(\tilde{x})}{\sigma^2}$</li>
+                            <li>Advantages:
+                                <ul>
+                                    <li>More intuitive objective</li>
+                                    <li>Often more stable training</li>
+                                    <li>Better for high-dimensional data</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <strong>$\epsilon$-Prediction Model $\epsilon_\theta(\tilde{x})$</strong>:
+                        <ul>
+                            <li>Trained to predict the noise $\epsilon$</li>
+                            <li>Optimal $\epsilon_{\theta^*}(\tilde{x}) = \mathbb{E}[\epsilon|\tilde{x}]$</li>
+                            <li>Loss: $Loss_{\epsilon} = \mathbb{E}[\|\epsilon_\theta(\tilde{x}) - \epsilon\|^2]$</li>
+                            <li>Connection to score: $s_\theta(\tilde{x}) \approx -\frac{\epsilon_\theta(\tilde{x})}{\sigma}$</li>
+                            <li>Advantages:
+                                <ul>
+                                    <li>Simpler training objective</li>
+                                    <li>Often more stable</li>
+                                    <li>Better for high-dimensional data</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <p>These relationships show the consistency between modeling the score, the original data, or the noise. In practice, these parametrizations can be interchanged:</p>
+                <p class="math">$$s_\theta(\tilde{x}) = -\frac{\tilde{x}-\alpha x_\theta(\tilde{x})}{\sigma^2} = -\frac{\epsilon_\theta(\tilde{x})}{\sigma}$$</p>
+
+                <p>This flexibility in model parametrization is one of the key strengths of diffusion models.</p>
+
+                <h2 id="diffusion">Diffusion Models</h2>
+                <p>Now that we understand the theoretical foundations, let's explore the two main types of diffusion models in detail.</p>
+
+                <h3>1. Score Matching with Langevin Dynamics (SMLD)</h3>
+                <p>Proposed by Song & Ermon (2019), SMLD combines score matching with annealed Langevin dynamics:</p>
+
+                <h4>Forward Process</h4>
+                <ul>
+                    <li>Gradually adds noise to data</li>
+                    <li>Uses a sequence of noise levels: $\sigma_1 > \sigma_2 > \dots > \sigma_T \approx 0$</li>
+                    <li>Transition kernel: $p(\tilde{x}_i| x) = N(\tilde{x}_i; x, \sigma_i^2)$</li>
+                    <li>The noise schedule can be geometric: $\sigma_i = \sigma_1 \cdot \gamma^{i-1}$ for some $\gamma \in (0,1)$</li>
+                </ul>
+
+                <h4>Training</h4>
+                <p class="math">$$J_{DSM} = \frac{1}{T}\sum_{i=1}^T \mathbb{E}_{p(x_0),\epsilon}\left[\lambda(\sigma_i)\|s_\theta(x_0+\sigma_i\epsilon, \sigma_i) + \frac{\epsilon}{\sigma_i}\|^2\right]$$</p>
+
+                <p>The weighting function $\lambda(\sigma_i)$ can be chosen to:</p>
+                <ul>
+                    <li>Balance different noise levels</li>
+                    <li>Improve training stability</li>
+                    <li>Optimize sample quality</li>
+                </ul>
+
+                <h4>Sampling</h4>
+                <p>Annealed Langevin MCMC:</p>
+                <p class="math">$$x_k^{(i)} = x_{k-1}^{(i)} + \frac{\text{step_size}_i}{2} s_\theta(x_{k-1}^{(i)}, \sigma_i) + \sqrt{\text{step_size}_i} z_k, \quad z_k \sim N(0,I)$$</p>
+
+                <p>The step size $\text{step_size}_i$ should be:</p>
+                <ul>
+                    <li>Small enough for stability</li>
+                    <li>Large enough for efficient sampling</li>
+                    <li>Typically chosen as $\text{step_size}_i \propto \sigma_i^2$</li>
+                </ul>
+
+                <h3>2. Denoising Diffusion Probabilistic Models (DDPM)</h3>
+                <p>Proposed by Ho et al. (2020), DDPM takes a different approach to the forward process:</p>
+
+                <h4>Forward Process</h4>
+                <p class="math">$$x_t = \sqrt{1-\beta_t}x_{t-1} + \sqrt{\beta_t}\epsilon_{t-1}$$</p>
+                <p>where $\beta_t \in (0,1)$ is a noise schedule.</p>
+
+                <p>The noise schedule can be:</p>
+                <ul>
+                    <li>Linear: $\beta_t = \beta_1 + \frac{t-1}{T-1}(\beta_T - \beta_1)$</li>
+                    <li>Cosine: $\beta_t = \frac{\beta_1}{2}(1 + \cos(\frac{t-1}{T-1}\pi))$</li>
+                    <li>Quadratic: $\beta_t = \beta_1 + \frac{(t-1)^2}{(T-1)^2}(\beta_T - \beta_1)$</li>
+                </ul>
+
+                <h4>Direct Sampling</h4>
+                <p class="math">$$x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$$</p>
+                <p>where $\bar{\alpha}_t = \prod_{s=1}^t (1-\beta_s)$.</p>
+
+                <h4>Training Loss</h4>
+                <p class="math">$$\mathbb{E}_{t\sim U[0,1]}\mathbb{E}_{p(x)}\mathbb{E}_{p(x_t|x)}\left[\|\epsilon_\theta(x_t,t)-\epsilon\|^2\right]$$</p>
+
+                <p>The loss can be weighted by:</p>
+                <ul>
+                    <li>Uniform weighting</li>
+                    <li>Signal-to-noise ratio: $\frac{\bar{\alpha}_t}{1-\bar{\alpha}_t}$</li>
+                    <li>Custom weighting for better sample quality</li>
+                </ul>
+
+                <h4>Sampling</h4>
+                <p class="math">$$x_{t-1} = \frac{1}{\sqrt{1-\beta_t}}(x_t+\beta_t s_\theta(x_t, t)) +\sqrt{\beta_t}\epsilon_t, \quad t = T, T-1, \cdots, 1$$</p>
+
+                <p>The sampling process can be improved by:</p>
+                <ul>
+                    <li>Using multiple denoising steps</li>
+                    <li>Adding noise during sampling</li>
+                    <li>Using a predictor-corrector scheme</li>
+                </ul>
+
+                <h2 id="continuous">Continuous Formulations</h2>
+                <p>The discrete processes we've discussed can be generalized to continuous-time Stochastic Differential Equations (SDEs), providing a more elegant theoretical framework.</p>
+
+                <h3>General Form</h3>
+                <p>The general form of the SDE is:</p>
+                <p class="math">$$dx_t = f(x_t, t)dt + g(t) dB_t$$</p>
+
+                <p>The probability density $p(x,t)$ evolves according to the Fokker-Planck equation:</p>
+                <p class="math">$$\frac{\partial p(x,t)}{\partial t} + \nabla_x \cdot \left(f(x,t) p(x,t)\right) - \frac{1}{2}g^2(t) \Delta_x p(x,t)=0$$</p>
+
+                <h3>Two Main Types</h3>
+                <ol>
+                    <li>
+                        <strong>Variance Exploding (VE) SDE</strong>:
+                        <p class="math">$$dx_t = \sqrt{\frac{d[\sigma^2(t)]}{dt}} dB_t$$</p>
+                        <p>Transition kernel: $p(x_t|x_0) = N(x_t; x_0, \sigma^2(t)I)$</p>
+                        <ul>
+                            <li>The variance grows without bound</li>
+                            <li>Often used with $\sigma^2(t) = t$</li>
+                            <li>Simpler to implement</li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <strong>Variance Preserving (VP) SDE</strong>:
+                        <p class="math">$$dx_t = -\frac{1}{2}\tilde{\beta}(t) x_t dt + \sqrt{\tilde{\beta}(t)} dB_t$$</p>
+                        <p>Transition kernel: $p(x_t|x_0) = N(x_t; x_0 e^{-\frac{1}{2}\int_0^t \tilde{\beta}(s)ds}, (1-e^{-\int_0^t \tilde{\beta}(s)ds})I)$</p>
+                        <ul>
+                            <li>The variance is bounded</li>
+                            <li>Often used with $\tilde{\beta}(t) = \beta_0 + t(\beta_1 - \beta_0)$</li>
+                            <li>More stable training</li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <h3>Reverse Process</h3>
+                <p>The reverse of the forward SDE is:</p>
+                <p class="math">$$dx_t = [f(x_t, t) - g^2(t) \nabla_x \log p(x_t, t)]dt + g(t) d\bar{B}_t$$</p>
+
+                <p>During sampling, we replace $\nabla_x \log p(x_t, t)$ with our learned score model $s_\theta(x_t, t)$.</p>
+
+                <p>The reverse process can be solved using:</p>
+                <ol>
+                    <li>Euler-Maruyama method</li>
+                    <li>Runge-Kutta methods</li>
+                    <li>Probability flow ODE</li>
+                    <li>Predictor-corrector methods</li>
+                </ol>
+
+                <h2 id="implementation">Practical Implementation</h2>
+                <p>Now that we understand the theory, let's discuss how to implement these models in practice.</p>
+
+                <h3>Training Process</h3>
+                <p>The training process involves several steps:</p>
+                <ol>
+                    <li>Sample data point $x \sim p_{data}$</li>
+                    <li>Sample time $t \sim U[0, 1]$</li>
+                    <li>Sample noise $\epsilon \sim N(0, 1)$</li>
+                    <li>Add noise: $x_t = \tilde{\alpha}_t x + \tilde{\sigma}_t\epsilon$</li>
+                    <li>Compute loss: $\|s_\theta(x_t, t) - \epsilon/\tilde{\sigma}_t\|$</li>
+                </ol>
+
+                <h4>Training Tips</h4>
+                <ul>
+                    <li>Use gradient clipping to prevent exploding gradients</li>
+                    <li>Normalize the data to improve training stability</li>
+                    <li>Use learning rate scheduling to adapt to different training phases</li>
+                    <li>Monitor the loss carefully to detect potential issues</li>
+                    <li>Use mixed precision training for better efficiency</li>
+                    <li>Implement proper logging for debugging and monitoring</li>
+                </ul>
+
+                <h3>Inference Process</h3>
+                <p>The inference process involves:</p>
+                <ol>
+                    <li>Generate initial noise $x_T \sim N(0, \sigma^2_{max})$</li>
+                    <li>Solve reverse SDE:
+                        <p class="math">$$dx_t = [f(x_t, t) - g^2(t) s_\theta(x_t, t)]dt + g(t) d\bar{B}_t$$</p>
+                    </li>
+                    <li>Apply corrector steps using Langevin MCMC:
+                        <p class="math">$$x_{k+1} = x_k + \frac{\delta}{2}s_\theta(x_k, t) + \sqrt{\delta}z_k, \quad z_k \sim N(0,I)$$</p>
+                    </li>
+                </ol>
+
+                <h4>Inference Tips</h4>
+                <ul>
+                    <li>Use multiple sampling steps for better quality</li>
+                    <li>Implement early stopping to save computation</li>
+                    <li>Use temperature scaling to control sample diversity</li>
+                    <li>Apply proper noise scheduling for better results</li>
+                    <li>Monitor sample quality during generation</li>
+                    <li>Use proper random seeds for reproducibility</li>
+                </ul>
+
+                <h2 id="questions">Open Questions</h2>
+                <p>The field of diffusion models is still evolving rapidly, with many interesting questions remaining open for research:</p>
+
+                <ol>
+                    <li>
+                        <strong>Reverse Process Equivalence</strong>
+                        <ul>
+                            <li>Can we prove that different reverse sampling forms lead to the same marginal distribution?</li>
+                            <li>What are the trade-offs between different formulations?</li>
+                            <li>How do different noise schedules affect the results?</li>
+                            <li>Can we derive optimal noise schedules?</li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <strong>Score Function Evolution</strong>
+                        <ul>
+                            <li>How does the score function evolve over time?</li>
+                            <li>Can we derive a PDE for the score function?</li>
+                            <li>The score function $s(x,t)$ should satisfy:
+                                <p class="math">$$\frac{\partial s}{\partial t} = \nabla_x (-\nabla_x \cdot f - \langle f, s\rangle + \frac{1}{2}g^2\|s\|^2 + \frac{1}{2}g^2\langle \nabla, s \rangle)$$</p>
+                            </li>
+                            <li>Can we use this PDE to improve training?</li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <strong>Training Objectives</strong>
+                        <ul>
+                            <li>Why is ISM loss less commonly used than DSM loss?</li>
+                            <li>Are there better training objectives?</li>
+                            <li>Can we derive optimal weighting functions?</li>
+                            <li>How do different loss functions affect sample quality?</li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <strong>Architecture Design</strong>
+                        <ul>
+                            <li>What are the best architectures for score models?</li>
+                            <li>How do different normalization layers affect training?</li>
+                            <li>Can we design more efficient architectures?</li>
+                            <li>How do different activation functions affect performance?</li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <strong>Sampling Efficiency</strong>
+                        <ul>
+                            <li>Can we reduce the number of sampling steps?</li>
+                            <li>Are there better sampling algorithms?</li>
+                            <li>Can we parallelize the sampling process?</li>
+                            <li>How do different sampling methods affect quality?</li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <h2>Conclusion</h2>
+                <p>Diffusion models represent a powerful approach to generative modeling, with deep mathematical foundations in probability theory and stochastic processes. Understanding these foundations is crucial for both theoretical insights and practical implementations.</p>
+
+                <p>The field continues to evolve rapidly, with new architectures and training methods being developed regularly. By understanding the mathematical principles behind these models, we can better appreciate their capabilities and limitations.</p>
+
+                <p>Key takeaways:</p>
+                <ol>
+                    <li>Score-based models provide a powerful framework for generative modeling</li>
+                    <li>Different training objectives (ESM, ISM, DSM) are equivalent up to constants</li>
+                    <li>Continuous-time formulations provide elegant theoretical insights</li>
+                    <li>Practical implementation requires careful consideration of many details</li>
+                    <li>Many interesting questions remain open for research</li>
+                </ol>
+            </section>
+        </article>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Pipi Hu. All rights reserved.</p>
+    </footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false}
+                ]
+            });
+        });
+    </script>
+</body>
+</html> 
