@@ -159,6 +159,20 @@ main {
     color: var(--primary-color);
 }
 
+.post-links {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.pdf-link {
+    color: #e74c3c;
+}
+
+.pdf-link:hover {
+    color: #c0392b;
+}
+
 /* About Section */
 .about-section {
     background-color: var(--light-gray);
