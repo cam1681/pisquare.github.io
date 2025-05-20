@@ -3,74 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My GitHub Page</title>
+    <title>Understanding Diffusion Models: A Mathematical Perspective</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 </head>
 <body>
     <header>
         <nav>
-            <div class="logo">My Portfolio</div>
+            <div class="logo">Technical Blog</div>
             <ul class="nav-links">
                 <li><a href="#home">Home</a></li>
                 <li><a href="#about">About</a></li>
-                <li><a href="#projects">Projects</a></li>
+                <li><a href="#blog">Blog</a></li>
                 <li><a href="#contact">Contact</a></li>
             </ul>
         </nav>
     </header>
 
     <main>
-        <section id="home" class="hero">
-            <div class="hero-content">
-                <h1>Welcome to My GitHub Page</h1>
-                <p>I'm a passionate developer sharing my journey and projects</p>
-                <a href="#projects" class="cta-button">View My Work</a>
+        <article class="blog-post">
+            <h1>Understanding Diffusion Models: A Mathematical Perspective</h1>
+            <div class="post-meta">
+                <span class="date">March 2024</span>
+                <span class="author">By Pipi Hu</span>
             </div>
-        </section>
 
-        <section id="about" class="about">
-            <h2>About Me</h2>
-            <div class="about-content">
-                <p>Welcome to my GitHub Pages site! I'm a developer passionate about creating innovative solutions and sharing knowledge with the community.</p>
-            </div>
-        </section>
+            <section class="post-content">
+                <h2>Introduction</h2>
+                <p>As Richard Feynman once said, "What I cannot create, I do not understand." This principle guides our exploration of diffusion models, where we'll dive deep into the mathematical foundations that make these powerful generative models work.</p>
 
-        <section id="projects" class="projects">
-            <h2>My Projects</h2>
-            <div class="project-grid">
-                <div class="project-card">
-                    <h3>Project 1</h3>
-                    <p>Description of your first project goes here.</p>
-                    <a href="#" class="project-link">Learn More</a>
-                </div>
-                <div class="project-card">
-                    <h3>Project 2</h3>
-                    <p>Description of your second project goes here.</p>
-                    <a href="#" class="project-link">Learn More</a>
-                </div>
-                <div class="project-card">
-                    <h3>Project 3</h3>
-                    <p>Description of your third project goes here.</p>
-                    <a href="#" class="project-link">Learn More</a>
-                </div>
-            </div>
-        </section>
+                <h2>Preliminary: Generating Samples from Probability Distributions</h2>
+                <p>Before diving into diffusion models, let's understand the fundamental problem: how to generate samples from a given distribution p(x)?</p>
+                <ul>
+                    <li>Simple distributions like uniform and Gaussian are straightforward to sample from</li>
+                    <li>Mixture Gaussians require determining which Gaussian to sample from first</li>
+                    <li>For general distributions, we use methods like:
+                        <ul>
+                            <li>Langevin Markov Chain Monte Carlo sampling (Langevin MCMC)</li>
+                            <li>Stein Variational Gradient Descent (SVGD)</li>
+                        </ul>
+                    </li>
+                </ul>
 
-        <section id="contact" class="contact">
-            <h2>Contact Me</h2>
-            <div class="contact-content">
-                <div class="social-links">
-                    <a href="#" class="social-link"><i class="fab fa-github"></i></a>
-                    <a href="#" class="social-link"><i class="fab fa-linkedin"></i></a>
-                    <a href="#" class="social-link"><i class="fab fa-twitter"></i></a>
-                </div>
-            </div>
-        </section>
+                <h2>The Score Function: A Key Component</h2>
+                <p>The score function plays a crucial role in diffusion models. It's defined as:</p>
+                <p class="math">S(x;θ) ≡ ∇ log p(x;θ)</p>
+                <p>This function represents the gradient of the log probability density, which is essential for both training and sampling.</p>
+
+                <h2>Training Approaches</h2>
+                <h3>1. Explicit Score Matching (ESM)</h3>
+                <p>The ESM loss is defined as:</p>
+                <p class="math">J_{ESM} = \frac{1}{2} \mathbb{E}_p\left[\|s(x;θ)-\frac{\partial \log p(x)}{\partial x}\|^2\right]</p>
+
+                <h3>2. Implicit Score Matching (ISM)</h3>
+                <p>ISM provides a tractable alternative to ESM:</p>
+                <p class="math">J_{ISM} = \mathbb{E}_p\left[\frac{1}{2}\|s(x;θ)\|^2+\nabla\cdot s(x;θ)\right]</p>
+
+                <h3>3. Denoising Score Matching (DSM)</h3>
+                <p>DSM addresses stability issues in optimization:</p>
+                <p class="math">J_{DSM} = \frac{1}{2}\mathbb{E}_{p(x,\tilde{x})}\left[\|s(\tilde{x};θ)-\nabla_{\tilde{x}}\log p(\tilde{x}|x)\|^2\right]</p>
+
+                <h2>Diffusion Models: From Theory to Implementation</h2>
+                <h3>Score Matching Langevin Dynamic (SMLD)</h3>
+                <p>SMLD adds noise in a specific manner:</p>
+                <p class="math">p(\tilde{x}_i| x) = N(\tilde{x}_i; x, \sigma_i^2)</p>
+
+                <h3>Denoising Diffusion Probabilistic Models (DDPM)</h3>
+                <p>DDPM follows a different approach:</p>
+                <p class="math">x_t = \sqrt{1-\beta_t}x_{t-1} +\sqrt{\beta_t}\epsilon</p>
+
+                <h2>Continuous Version of Diffusion Models</h2>
+                <p>The continuous formulation provides deeper insights into the underlying processes:</p>
+                <p class="math">dx = f(x, t)dt + g(t) dB_t</p>
+
+                <h2>Training and Inference</h2>
+                <h3>Training Process</h3>
+                <ol>
+                    <li>Sample data point x from p_data</li>
+                    <li>Sample time t from U[0, 1]</li>
+                    <li>Sample noise ε from N(0, 1)</li>
+                    <li>Add noise: x_t = α_t x + σ_t ε</li>
+                    <li>Compute loss: ||s_θ(x_t, t) - ε/σ_t||</li>
+                </ol>
+
+                <h3>Inference Process</h3>
+                <ol>
+                    <li>Generate initial noise x(1) ~ N(0, σ²_max)</li>
+                    <li>Integrate reverse sampling equation</li>
+                    <li>Apply corrector process using Langevin MCMC</li>
+                </ol>
+
+                <h2>Open Questions</h2>
+                <p>Several interesting questions remain open for research:</p>
+                <ol>
+                    <li>Proving the equivalence of different reverse sampling forms</li>
+                    <li>Understanding the evolution of the score function</li>
+                    <li>Exploring why ISM loss is less commonly used than DSM loss</li>
+                </ol>
+
+                <h2>Conclusion</h2>
+                <p>Diffusion models represent a powerful approach to generative modeling, with deep mathematical foundations in probability theory and stochastic processes. Understanding these foundations is crucial for both theoretical insights and practical implementations.</p>
+            </section>
+        </article>
     </main>
 
     <footer>
-        <p>&copy; 2024 My GitHub Page. All rights reserved.</p>
+        <p>&copy; 2024 Technical Blog. All rights reserved.</p>
     </footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false}
+                ]
+            });
+        });
+    </script>
 </body>
 </html> 

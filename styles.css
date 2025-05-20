@@ -9,6 +9,7 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
     color: #333;
+    background-color: #f8f9fa;
 }
 
 /* Navigation */
@@ -51,6 +52,75 @@ nav {
 
 .nav-links a:hover {
     color: #3498db;
+}
+
+/* Blog Post */
+.blog-post {
+    max-width: 800px;
+    margin: 100px auto 50px;
+    padding: 2rem;
+    background: white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: 10px;
+}
+
+.blog-post h1 {
+    font-size: 2.5rem;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.post-meta {
+    color: #666;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+}
+
+.post-meta span {
+    margin-right: 1rem;
+}
+
+.post-content {
+    font-size: 1.1rem;
+    line-height: 1.8;
+}
+
+.post-content h2 {
+    color: #2c3e50;
+    margin: 2rem 0 1rem;
+    font-size: 1.8rem;
+}
+
+.post-content h3 {
+    color: #34495e;
+    margin: 1.5rem 0 1rem;
+    font-size: 1.4rem;
+}
+
+.post-content p {
+    margin-bottom: 1.5rem;
+}
+
+.post-content ul, .post-content ol {
+    margin: 1rem 0 1.5rem 2rem;
+}
+
+.post-content li {
+    margin-bottom: 0.5rem;
+}
+
+/* Math Equations */
+.math {
+    font-size: 1.1em;
+    line-height: 1.5;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+}
+
+.katex-display {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 /* Hero Section */
@@ -186,12 +256,26 @@ footer {
     color: white;
     text-align: center;
     padding: 2rem;
+    margin-top: 3rem;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
     .nav-links {
         display: none;
+    }
+    
+    .blog-post {
+        margin: 80px 1rem 30px;
+        padding: 1rem;
+    }
+    
+    .blog-post h1 {
+        font-size: 2rem;
+    }
+    
+    .post-content {
+        font-size: 1rem;
     }
     
     .hero h1 {
